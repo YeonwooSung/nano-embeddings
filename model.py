@@ -184,12 +184,24 @@ class BgeM3(nn.Module):
             BgeAttention(config) for _ in range(self.num_of_attn_layers)
         ])
 
-        #TODO pooler
         #TODO dense retriever, sparse retriever, colbert retriever
+
 
     def forward(self, input_ids, token_type_ids=None):
         # Embedding
         embed = self.embedding(input_ids, token_type_ids)
 
         out = embed
-        return out
+
+        # Attention
+        for attention in self.attentions:
+            out = attention(out)
+
+        # pooling (explicit pooling)
+        dense_retrieval_vec = out[:, 0, :]
+
+        #TODO colbert retrieval, sparse retrieval
+        sparse_retrieval_vec = None
+        colbert_retrieval_vec = None
+
+        return dense_retrieval_vec, sparse_retrieval_vec, colbert_retrieval_vec
