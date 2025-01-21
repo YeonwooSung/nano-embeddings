@@ -1,26 +1,8 @@
-from dataclasses import dataclass
 import torch
 import torch.nn as nn
 
-
-@dataclass
-class BgeConfig:
-    word_size: int = 250_002
-    position_size: int = 8192
-    layer_norm_eps: float = 1e-5
-
-    embed_dim: int = 1024
-    hidden_size: int = 4096
-    dropout_prob: float = 0.1
-
-    num_of_attn_layers: int = 24
-
-    num_heads: int = 16
-
-    attn_dim: int = 1024
-    attn_output_dim: int = 1024
-    attn_layer_norm_eps: float = 1e-5
-    ffn_layer_norm_eps: float = 1e-5
+# custom modules
+from config import BgeConfig
 
 
 class BgeM3Embedding(nn.Module):
