@@ -1,6 +1,6 @@
-# Nano BGE
+# Nano Embeddings
 
-The simplest, fastest repository for training/finetuning mini size BGE model.
+The simplest, fastest repository for training/finetuning mini size embedding models like BGE and ModernBERT.
 
 ## References
 
