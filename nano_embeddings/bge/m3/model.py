@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 # custom modules
-from config import BgeConfig
+from .config import BgeConfig, get_config_for_tiny
 
 
 class BgeM3Embedding(nn.Module):
@@ -166,7 +166,9 @@ class BgeM3(nn.Module):
             BgeAttention(config) for _ in range(self.num_of_attn_layers)
         ])
 
-        #TODO dense retriever, sparse retriever, colbert retriever
+        # sparse retriever, colbert retriever
+        self.sparse_linear = nn.Linear(config.embed_dim, config.word_size)
+        self.colbert_linear = nn.Linear(config.embed_dim, config.embed_dim)
 
 
     def forward(self, input_ids, token_type_ids=None):
@@ -182,8 +184,66 @@ class BgeM3(nn.Module):
         # pooling (explicit pooling)
         dense_retrieval_vec = out[:, 0, :]
 
-        #TODO colbert retrieval, sparse retrieval
-        sparse_retrieval_vec = None
-        colbert_retrieval_vec = None
+        # sparse retrieval
+        sparse_retrieval_vec = self._sparse_embedding(out, input_ids)
+        # colbert retrieval
+        colbert_retrieval_vec = self._colbert_embedding(out, input_ids)
 
         return dense_retrieval_vec, sparse_retrieval_vec, colbert_retrieval_vec
+
+
+    def _sparse_embedding(self, hidden_state, input_ids, return_embedding: bool = True):
+        """Compute and return the sparse embedding.
+
+        Args:
+            hidden_state (torch.Tensor): The model output's last hidden state.
+            input_ids (_type_): Ids from input features.
+            return_embedding (bool, optional): If True, return the computed embedding, otherwise just return the token weights. 
+                Defaults to ``True``.
+
+        Returns:
+            torch.Tensor: The sparse embedding or just the token weights.
+        """
+        token_weights = torch.relu(self.sparse_linear(hidden_state))
+        if not return_embedding:
+            return token_weights
+
+        sparse_embedding = torch.zeros(
+            input_ids.size(0), input_ids.size(1), self.vocab_size,
+            dtype=token_weights.dtype,
+            device=token_weights.device
+        )
+        sparse_embedding = torch.scatter(sparse_embedding, dim=-1, index=input_ids.unsqueeze(-1), src=token_weights)
+
+        unused_tokens = [
+            self.tokenizer.cls_token_id, self.tokenizer.eos_token_id,
+            self.tokenizer.pad_token_id, self.tokenizer.unk_token_id
+        ]
+        sparse_embedding = torch.max(sparse_embedding, dim=1).values
+        sparse_embedding[:, unused_tokens] *= 0.
+        return sparse_embedding
+
+
+    def _colbert_embedding(self, last_hidden_state, mask):
+        """Get the colbert vectors.
+
+        Args:
+            last_hidden_state (torch.Tensor): The model output's last hidden state.
+            attention_mask (torch.Tensor): Mask out padding tokens during pooling.
+
+        Returns:
+            torch.Tensor: The colbert vectors.
+        """
+        colbert_vecs = self.colbert_linear(last_hidden_state[:, 1:])
+        colbert_vecs = colbert_vecs * mask[:, 1:][:, :, None].float()
+        return colbert_vecs
+
+
+    @staticmethod
+    def init_model_from_config(config: BgeConfig):
+        return BgeM3(config)
+
+    @staticmethod
+    def init_tiny_model_with_default_config():
+        config = get_config_for_tiny()
+        return BgeM3(config)

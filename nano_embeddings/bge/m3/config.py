@@ -2,6 +2,12 @@ from dataclasses import dataclass
 
 
 @dataclass
+class BgeTrainerConfig:
+    epochs: int = 10
+    batch_size: int = 8
+
+
+@dataclass
 class BgeConfig:
     word_size: int = 250_002
     position_size: int = 8192
